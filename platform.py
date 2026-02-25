@@ -75,14 +75,22 @@ class Rakwirelessrui3Platform(PlatformBase):
             if not re.match(r"^\d+\.\d+\.\d+", semver):
                 semver = "0.0.0"
 
-            # Inject the package.json PlatformIO requires for find_pkg_root()
-            pkg_json = {
-                "name": pkg_name,
-                "version": semver,
-                "description": "RAKwireless RUI3 BSP (%s)" % tag,
-            }
-            with open(os.path.join(extracted_root, "package.json"), "w") as f:
-                json.dump(pkg_json, f, indent=2)
+            # Inject package.json only if the BSP does not already ship one.
+            # If RAK's upstream repo includes package.json (e.g. after a PR is merged),
+            # we use theirs and read the version from it.
+            pkg_json_path = os.path.join(extracted_root, "package.json")
+            if os.path.isfile(pkg_json_path):
+                with open(pkg_json_path) as f:
+                    existing = json.load(f)
+                semver = existing.get("version", semver)
+            else:
+                pkg_json = {
+                    "name": pkg_name,
+                    "version": semver,
+                    "description": "RAKwireless RUI3 BSP (%s)" % tag,
+                }
+                with open(pkg_json_path, "w") as f:
+                    json.dump(pkg_json, f, indent=2)
 
             # Replace existing installation if forced
             if force and os.path.isdir(pkg_dir):

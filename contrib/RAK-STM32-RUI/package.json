@@ -1,0 +1,18 @@
+{
+  "name": "framework-rui3-stm32wle",
+  "version": "5.0.2",
+  "description": "RAKwireless RUI3 BSP for STM32WLE (RAK3172 family) — PlatformIO package manifest",
+  "keywords": [
+    "platformio",
+    "rui3",
+    "stm32wle",
+    "rak3172",
+    "lorawan"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RAKWireless/RAK-STM32-RUI.git"
+  },
+  "homepage": "https://github.com/RAKWireless/RAK-STM32-RUI"
+}
