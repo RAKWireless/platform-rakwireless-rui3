@@ -1,0 +1,39 @@
+{
+  "build": {
+    "core": "nRF5",
+    "cpu": "cortex-m4",
+    "f_cpu": "64000000L",
+    "mcu": "nrf52840",
+    "variant": "WisTrio_RAK5010_Board",
+    "series": "rak5010",
+    "ldscript": "flash_nrf52840.ld",
+    "float_flags": "-mfloat-abi=hard -mfpu=fpv4-sp-d16 -u _printf_float",
+    "extra_flags": "-DNRF52840_XXAA -DRAK5010_EVB -Drak5010",
+    "feature_flags": "-DNO_LORA_SUPPORT -DLORA_IO_SPI_PORT=2 -DSYS_RTC_COUNTER_PORT=2 -DATCMD_CUST_TABLE_SIZE=64 -DWAN_TYPE=1 -DAUTO_DISPLAY_CELLULAR_RESPONSE -DBG96_TEST -DBATTERY_LEVEL_SUPPORT -DBLE_CENTRAL_SUPPORT -DAPP_TIMER_V2 -DAPP_TIMER_V2_RTC1_ENABLED -DBOARD_PCA10056 -DS140 -DCONFIG_GPIO_AS_PINRESET -DFLOAT_ABI_HARD -DNRF52840_XXAA -DNRF_SD_BLE_API_VERSION=6 -DUSER_UART -DUSBD_CDC -DBLE_SUPPORT -DDFU_SUPPORT -DBL_SETTINGS_ACCESS_ONLY -DNRF_DFU_SVCI_ENABLED -DNRF_DFU_TRANSPORT_BLE=1 -DSOFTDEVICE_PRESENT -DSWI_DISABLE0 -D__HEAP_SIZE=7168 -D__STACK_SIZE=7168 -DSUPPORT_USB -DSUPPORT_BLE -DCONFIG_NFCT_PINS_AS_GPIOS -DSUPPORT_AT -DRUI_SDK",
+    "prebuilt_libs": "-lnrf_cc310_0.9.13 -loberon_3.0.6"
+  },
+  "debug": {
+    "jlink_device": "nRF52840_xxAA",
+    "openocd_target": "nrf52840.cfg",
+    "svd_path": "nrf52840.svd"
+  },
+  "frameworks": [
+    "rui3"
+  ],
+  "name": "RAK5010 WisTrio NB-IoT Tracker Board",
+  "upload": {
+    "maximum_ram_size": 206448,
+    "maximum_size": 557056,
+    "protocol": "nrfjprog",
+    "protocols": [
+      "nrfjprog",
+      "jlink",
+      "blackmagic",
+      "stlink"
+    ],
+    "use_1200bps_touch": true,
+    "wait_for_upload_port": true
+  },
+  "url": "https://docs.rakwireless.com/Product-Categories/WisTrio/RAK5010/Overview/",
+  "vendor": "RAKwireless"
+}

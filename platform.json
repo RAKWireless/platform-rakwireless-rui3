@@ -20,7 +20,7 @@
     "framework-rui3-nrf52": {
       "type": "framework",
       "optional": true,
-      "version": "https://github.com/RAKWireless/RAK-nRF52-RUI/archive/refs/tags/RUI_4.1.2.zip"
+      "version": "https://github.com/RAKWireless/RAK-nRF52-RUI/archive/refs/tags/v4.1.2_319.zip"
     },
     "toolchain-gccarmnoneeabi": {
       "type": "toolchain",
@@ -56,6 +56,18 @@
     {
       "id": "rak3272lpsip",
       "name": "RAK3272LP-SiP"
+    },
+    {
+      "id": "rak4631",
+      "name": "RAK4631"
+    },
+    {
+      "id": "rak5010",
+      "name": "RAK5010"
+    },
+    {
+      "id": "rak3401",
+      "name": "RAK3401"
     }
   ]
 }
