@@ -1,0 +1,61 @@
+{
+  "name": "rakwireless-rui3",
+  "title": "RAKwireless RUI3",
+  "description": "RAKwireless RUI3 platform for WisDuo and WisBlock modules (STM32WLE, nRF52840, Apollo3)",
+  "homepage": "https://github.com/RAKWireless",
+  "license": "Apache-2.0",
+  "version": "0.1.0",
+  "frameworks": {
+    "rui3": {
+      "package": "framework-rui3-stm32wle",
+      "script": "builder/frameworks/rui3.py"
+    }
+  },
+  "packages": {
+    "framework-rui3-stm32wle": {
+      "type": "framework",
+      "optional": true,
+      "version": "https://github.com/RAKWireless/RAK-STM32-RUI/archive/refs/tags/v5.0.2_350.zip"
+    },
+    "framework-rui3-nrf52": {
+      "type": "framework",
+      "optional": true,
+      "version": "https://github.com/RAKWireless/RAK-nRF52-RUI/archive/refs/tags/RUI_4.1.2.zip"
+    },
+    "toolchain-gccarmnoneeabi": {
+      "type": "toolchain",
+      "owner": "platformio",
+      "version": "~1.90301.0"
+    },
+    "tool-openocd": {
+      "type": "debugger",
+      "optional": true,
+      "owner": "platformio",
+      "version": "~3.1200.0"
+    },
+    "tool-jlink": {
+      "type": "debugger",
+      "optional": true,
+      "owner": "platformio",
+      "version": "^1.78811.0"
+    }
+  },
+  "boards": [
+    {
+      "id": "rak3172",
+      "name": "RAK3172"
+    },
+    {
+      "id": "rak3172t",
+      "name": "RAK3172-T"
+    },
+    {
+      "id": "rak3272sip",
+      "name": "RAK3272-SiP"
+    },
+    {
+      "id": "rak3272lpsip",
+      "name": "RAK3272LP-SiP"
+    }
+  ]
+}

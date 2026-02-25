@@ -1,0 +1,36 @@
+{
+  "build": {
+    "core": "STM32WLE",
+    "cpu": "cortex-m4",
+    "f_cpu": "64000000L",
+    "mcu": "stm32wle5cc",
+    "variant": "WisDuo_RAK3172_Evaluation_Board",
+    "series": "rak3172",
+    "app_path": "RAK3172-E",
+    "ldscript": "app_stm32wle5xx.ld",
+    "float_flags": "-mfpu=fpv4-sp-d16 -u _printf_float",
+    "extra_flags": "-DSTM32WLE5xx -Drak3172 -DWISBLOCK_BASE_5005_O",
+    "feature_flags": "-DLORA_STACK_104 -DLORA_IO_SPI_PORT=2 -DSYS_RTC_COUNTER_PORT=2 -DATCMD_CUST_TABLE_SIZE=64 -DWAN_TYPE=0 -DLORA_STACK_VER=0x040700 -DCORE_CM4 -DUSE_HAL_DRIVER -DSTM32WLE5xx -DSOFT_SE -DSECURE_ELEMENT_PRE_PROVISIONED -DLORAMAC_CLASSB_ENABLED -DSUPPORT_SPI -DSUPPORT_AT -DSUPPORT_FUOTA -DRUI_SDK"
+  },
+  "debug": {
+    "jlink_device": "STM32WLE5CC",
+    "openocd_target": "stm32wlx",
+    "svd_path": "STM32WLE5x.svd"
+  },
+  "frameworks": [
+    "rui3"
+  ],
+  "name": "RAK3172 WisDuo Evaluation Board",
+  "upload": {
+    "maximum_ram_size": 48640,
+    "maximum_size": 200704,
+    "protocol": "ymodem",
+    "protocols": [
+      "ymodem",
+      "jlink",
+      "stlink"
+    ]
+  },
+  "url": "https://docs.rakwireless.com/Product-Categories/WisDuo/RAK3172-Evaluation-Board/Overview/",
+  "vendor": "RAKwireless"
+}
