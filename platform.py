@@ -111,9 +111,135 @@ class Rakwirelessrui3Platform(PlatformBase):
             )
             pkg_item.dump_meta()
 
+            # Apply BSP-specific compatibility patches
+            if pkg_name == "framework-rui3-nrf52":
+                self._patch_nrf52_bsp(pkg_dir)
+
             print("%s@%s has been installed!" % (pkg_name, semver))
 
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             if os.path.isfile(tmp_zip):
                 os.remove(tmp_zip)
+
+    @staticmethod
+    def _patch_nrf52_bsp(pkg_dir):
+        """
+        Apply compatibility patches to the nRF52 BSP package files.
+
+        The BSP's FUOTA package source files (LmhpFragmentation.c,
+        LmhpClockSync.c, LmhpRemoteMcastSetup.c) were not updated for the
+        LORA_STACK_104 API change that renamed LmhPackage_t.IsRunning to
+        IsTxPending and removed OnSendRequest. This patch adds the required
+        #ifdef LORA_STACK_104 guards so the files compile with either API.
+        """
+        packages_dir = os.path.join(
+            pkg_dir, "cores", "nRF5", "component", "service", "lora", "packages"
+        )
+        patches = {
+            "LmhpFragmentation.c": [
+                # Fix: .IsRunning → .IsTxPending when LORA_STACK_104
+                (
+                    "    .IsRunning = LmhpFragmentationIsRunning,",
+                    "#ifdef LORA_STACK_104\n"
+                    "    .IsTxPending = LmhpFragmentationIsRunning,\n"
+                    "#else\n"
+                    "    .IsRunning = LmhpFragmentationIsRunning,\n"
+                    "#endif",
+                ),
+                # Fix: .OnSendRequest = NULL only when not LORA_STACK_104
+                (
+                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
+                    "    .OnDeviceTimeRequest = NULL,",
+                    "#ifndef LORA_STACK_104\n"
+                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
+                    "#endif\n"
+                    "    .OnDeviceTimeRequest = NULL,",
+                ),
+                # Fix: replace OnSendRequest call with LmHandlerSend in LORA_STACK_104
+                (
+                    "            LmhpFragmentationPackage.OnSendRequest( &cmdReplyAppData, LORAMAC_HANDLER_UNCONFIRMED_MSG );",
+                    "#ifdef LORA_STACK_104\n"
+                    "            LmHandlerSend( &cmdReplyAppData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
+                    "#else\n"
+                    "            LmhpFragmentationPackage.OnSendRequest( &cmdReplyAppData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
+                    "#endif",
+                ),
+            ],
+            "LmhpClockSync.c": [
+                (
+                    "    .IsRunning = LmhpClockSyncIsRunning,",
+                    "#ifdef LORA_STACK_104\n"
+                    "    .IsTxPending = LmhpClockSyncIsRunning,\n"
+                    "#else\n"
+                    "    .IsRunning = LmhpClockSyncIsRunning,\n"
+                    "#endif",
+                ),
+                (
+                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
+                    "    .OnDeviceTimeRequest = NULL,",
+                    "#ifndef LORA_STACK_104\n"
+                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
+                    "#endif\n"
+                    "    .OnDeviceTimeRequest = NULL,",
+                ),
+                (
+                    "        LmhpClockSyncPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );",
+                    "#ifdef LORA_STACK_104\n"
+                    "        LmHandlerSend( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
+                    "#else\n"
+                    "        LmhpClockSyncPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
+                    "#endif",
+                ),
+                (
+                    "    return LmhpClockSyncPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );",
+                    "#ifdef LORA_STACK_104\n"
+                    "    return LmHandlerSend( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
+                    "#else\n"
+                    "    return LmhpClockSyncPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
+                    "#endif",
+                ),
+            ],
+            "LmhpRemoteMcastSetup.c": [
+                (
+                    "    .IsRunning = LmhpRemoteMcastSetupIsRunning,",
+                    "#ifdef LORA_STACK_104\n"
+                    "    .IsTxPending = LmhpRemoteMcastSetupIsRunning,\n"
+                    "#else\n"
+                    "    .IsRunning = LmhpRemoteMcastSetupIsRunning,\n"
+                    "#endif",
+                ),
+                (
+                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
+                    "    .OnDeviceTimeRequest = NULL,",
+                    "#ifndef LORA_STACK_104\n"
+                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
+                    "#endif\n"
+                    "    .OnDeviceTimeRequest = NULL,",
+                ),
+                (
+                    "        LmhpRemoteMcastSetupPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );",
+                    "#ifdef LORA_STACK_104\n"
+                    "        LmHandlerSend( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
+                    "#else\n"
+                    "        LmhpRemoteMcastSetupPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
+                    "#endif",
+                ),
+            ],
+        }
+
+        for filename, file_patches in patches.items():
+            fpath = os.path.join(packages_dir, filename)
+            if not os.path.isfile(fpath):
+                print("Warning: patch target not found: %s" % fpath)
+                continue
+            with open(fpath, "r") as f:
+                content = f.read()
+            for old, new in file_patches:
+                if old in content:
+                    content = content.replace(old, new)
+                elif new not in content:
+                    # Patch not applied and new content also absent — warn
+                    print("Warning: patch target not found in %s:\n  %r" % (filename, old[:80]))
+            with open(fpath, "w") as f:
+                f.write(content)

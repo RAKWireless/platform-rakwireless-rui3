@@ -4,10 +4,9 @@
   "description": "RAKwireless RUI3 platform for WisDuo and WisBlock modules (STM32WLE, nRF52840, Apollo3)",
   "homepage": "https://github.com/RAKWireless",
   "license": "Apache-2.0",
-  "version": "0.1.0",
+  "version": "4.2.3+001",
   "frameworks": {
     "rui3": {
-      "package": "framework-rui3-stm32wle",
       "script": "builder/frameworks/rui3.py"
     }
   },
@@ -15,12 +14,12 @@
     "framework-rui3-stm32wle": {
       "type": "framework",
       "optional": true,
-      "version": "https://github.com/RAKWireless/RAK-STM32-RUI/archive/refs/tags/v5.0.2_350.zip"
+      "version": "https://github.com/RAKWireless/RAK-STM32-RUI/archive/refs/tags/v4.1.2_319.zip"
     },
     "framework-rui3-nrf52": {
       "type": "framework",
       "optional": true,
-      "version": "https://github.com/RAKWireless/RAK-nRF52-RUI/archive/refs/tags/v4.1.2_319.zip"
+      "version": "https://github.com/RAKWireless/RAK-nRF52-RUI/archive/refs/tags/v4.2.3_363.zip"
     },
     "toolchain-gccarmnoneeabi": {
       "type": "toolchain",

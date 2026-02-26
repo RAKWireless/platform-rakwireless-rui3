@@ -126,22 +126,9 @@ for flag in extra_flags.split():
             env.Append(CPPDEFINES=[define])
 
 # LoRa region support — only for boards with LoRa (not NO_LORA_SUPPORT)
-if "NO_LORA_SUPPORT" not in feature_flags:
-    env.Append(CPPDEFINES=[
-        "SUPPORT_LORA",
-        "SUPPORT_LORA_P2P",
-        "REGION_AS923",
-        "REGION_AU915",
-        "REGION_CN470",
-        "REGION_CN779",
-        "REGION_EU433",
-        "REGION_EU868",
-        "REGION_KR920",
-        "REGION_IN865",
-        "REGION_US915",
-        "REGION_RU864",
-        "REGION_LA915",
-    ])
+# REGION_LA915 is only supported in LoRaMac-node >= 4.7.0; determined later
+# after BSP version detection. Store the flag string here; apply after detection.
+_lora_support = "NO_LORA_SUPPORT" not in feature_flags
 
 # ---------------------------------------------------------------------------
 # Include paths
@@ -187,6 +174,7 @@ inc_paths = [
     # Services
     cores_join("component", "service", "lora"),
     cores_join("component", "service", "lora", "packages"),
+    cores_join("component", "service", "lora", "LmHandler"),
     cores_join("component", "service", "runtimeConfig"),
     cores_join("component", "service", "nvm"),
     cores_join("component", "service", "battery"),
@@ -201,14 +189,8 @@ inc_paths = [
     # Foundation
     cores_join("component", "fund", "event_queue"),
     cores_join("component", "fund", "circular_queue"),
-    # LoRaMac-node-4.4.7
-    cores_join("external", "lora", "LoRaMac-node-4.4.7", "src", "mac"),
-    cores_join("external", "lora", "LoRaMac-node-4.4.7", "src", "mac", "region"),
-    cores_join("external", "lora", "LoRaMac-node-4.4.7", "src", "radio"),
-    cores_join("external", "lora", "LoRaMac-node-4.4.7", "src", "system"),
-    cores_join("external", "lora", "LoRaMac-node-4.4.7", "src", "peripherals"),
-    cores_join("external", "lora", "LoRaMac-node-4.4.7", "src", "apps", "LoRaMac", "common", "LmHandler"),
-    cores_join("external", "lora", "LoRaMac-node-4.4.7", "src", "boards"),
+    # LoRaMac-node: prefer newest version present (guard below handles the rest)
+    # The actual path list is extended after inc_paths[] definition — see below.
     # FatFs / SPIFFS / micro-ecc
     cores_join("external", "FatFs", "source"),
     cores_join("external", "spiffs", "src"),
@@ -239,6 +221,7 @@ inc_paths = [
     sdk_join("components", "ble", "ble_services", "ble_bas"),
     sdk_join("components", "ble", "ble_services", "ble_dis"),
     sdk_join("components", "ble", "nrf_ble_gq"),
+    sdk_join("components", "ble", "ble_dtm"),
     # Serial / USB
     sdk_join("components", "libraries", "serial"),
     sdk_join("components", "libraries", "queue"),
@@ -328,6 +311,58 @@ inc_paths = [
     sdk_join("external", "segger_rtt"),
     sdk_join("external", "fprintf"),
 ]
+
+# ---------------------------------------------------------------------------
+# LoRaMac-node: auto-detect version (prefer newest present)
+# ---------------------------------------------------------------------------
+
+lora_dir = None
+lora_ver_name = None
+# Prefer 4.7.0: the nRF52 BSP's LmHandler.c uses NetworkActivation (4.5.2+) and
+# LORAMAC_REGION_LA915 (4.7.0+). LORA_STACK_104 (set in board JSON) switches
+# LmhPackage_t to use IsTxPending, which matches the 4.7.0 LmhPackage.h API.
+for _lora_ver in ["LoRaMac-node-4.7.0", "LoRaMac-node-4.5.2", "LoRaMac-node-4.4.7"]:
+    _candidate = cores_join("external", "lora", _lora_ver)
+    if os.path.isdir(_candidate):
+        lora_dir = _candidate
+        lora_ver_name = _lora_ver
+        break
+
+if _lora_support:
+    lora_regions = [
+        "SUPPORT_LORA",
+        "SUPPORT_LORA_P2P",
+        "REGION_AS923",
+        "REGION_AU915",
+        "REGION_CN470",
+        "REGION_CN779",
+        "REGION_EU433",
+        "REGION_EU868",
+        "REGION_KR920",
+        "REGION_IN865",
+        "REGION_US915",
+        "REGION_RU864",
+    ]
+    # LA915 requires LoRaMac-node >= 4.7.0
+    if lora_ver_name and lora_ver_name >= "LoRaMac-node-4.7.0":
+        lora_regions.append("REGION_LA915")
+    env.Append(CPPDEFINES=lora_regions)
+
+# Note: nRF52 BSP requires LoRaMac-node 4.7.0 (LORAMAC_REGION_LA915 enum value +
+# NetworkActivation in MlmeReqJoin_t). The shim is not needed since 4.7.0 is preferred.
+
+if lora_dir:
+    inc_paths += [
+        os.path.join(lora_dir, "src", "mac"),
+        os.path.join(lora_dir, "src", "mac", "region"),
+        os.path.join(lora_dir, "src", "radio"),
+        os.path.join(lora_dir, "src", "system"),
+        os.path.join(lora_dir, "src", "peripherals"),
+        os.path.join(lora_dir, "src", "boards"),
+        # LmHandler location differs by version: 4.4.7 keeps it under apps/,
+        # while 4.5.2+ moves it to component/service/lora/LmHandler (above).
+        os.path.join(lora_dir, "src", "apps", "LoRaMac", "common", "LmHandler"),
+    ]
 
 # Filter out non-existent directories
 env.Append(CPPPATH=[p for p in inc_paths if p and os.path.isdir(p)])
@@ -439,7 +474,6 @@ generate_version_source(env.subst(version_c_path))
 # and filtering out .fuota alternate sources.
 src_filter = [
     "+<component/>",
-    "+<external/lora/>",
     "+<external/FatFs/>",
     "+<external/spiffs/>",
     "+<external/micro_ecc/>",
@@ -457,6 +491,13 @@ src_filter = [
     "-<external/nRF5_SDK/nRF5_SDK_17.0.2_d674dde/components/libraries/util/app_error.c>",
     "-<external/nRF5_SDK/nRF5_SDK_17.0.2_d674dde/components/libraries/util/app_error_handler_gcc.c>",
 ]
+
+# Include only the selected LoRaMac-node version; exclude all others.
+if lora_ver_name:
+    src_filter.append("+<external/lora/%s/>" % lora_ver_name)
+    for _other_ver in ["LoRaMac-node-4.7.0", "LoRaMac-node-4.5.2", "LoRaMac-node-4.4.7"]:
+        if _other_ver != lora_ver_name:
+            src_filter.append("-<external/lora/%s/>" % _other_ver)
 
 libs = []
 

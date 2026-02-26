@@ -28,7 +28,7 @@ assert os.path.isdir(CORES_DIR), (
 variant = board.get("build.variant")
 series = board.get("build.series")
 app_path = board.get("build.app_path", "")
-ldscript = board.get("build.ldscript", "app_stm32wle5xx.ld")
+ldscript = board.get("build.ldscript", "flash_stm32wle5xx.ld")
 float_flags = board.get("build.float_flags", "-mfpu=fpv4-sp-d16 -u _printf_float")
 extra_flags = board.get("build.extra_flags", "")
 feature_flags = board.get("build.feature_flags", "")
@@ -118,22 +118,8 @@ for flag in extra_flags.split():
         else:
             env.Append(CPPDEFINES=[define])
 
-# LoRa support — default to LoRa + P2P with all regions enabled
-env.Append(CPPDEFINES=[
-    "SUPPORT_LORA",
-    "SUPPORT_LORA_P2P",
-    "REGION_AS923",
-    "REGION_AU915",
-    "REGION_CN470",
-    "REGION_CN779",
-    "REGION_EU433",
-    "REGION_EU868",
-    "REGION_KR920",
-    "REGION_IN865",
-    "REGION_US915",
-    "REGION_RU864",
-    "REGION_LA915",
-])
+# LoRa support — REGION_LA915 is only in LoRaMac-node >= 4.7.0; deferred below
+# after BSP version detection.
 
 # ---------------------------------------------------------------------------
 # Include paths
@@ -192,13 +178,7 @@ inc_paths = [
     # Foundation
     cores_join("component", "fund", "event_queue"),
     cores_join("component", "fund", "circular_queue"),
-    # LoRaMac-node
-    cores_join("external", "lora", "LoRaMac-node-4.7.0", "src", "mac"),
-    cores_join("external", "lora", "LoRaMac-node-4.7.0", "src", "mac", "region"),
-    cores_join("external", "lora", "LoRaMac-node-4.7.0", "src", "radio"),
-    cores_join("external", "lora", "LoRaMac-node-4.7.0", "src", "system"),
-    cores_join("external", "lora", "LoRaMac-node-4.7.0", "src", "peripherals"),
-    cores_join("external", "lora", "LoRaMac-node-4.7.0", "src", "boards"),
+    # LoRaMac-node: paths added after version detection below
     # STM32CubeWL
     cores_join("external", "STM32CubeWL", "Drivers", "CMSIS", "Device", "ST", "STM32WLxx", "Include"),
     cores_join("external", "STM32CubeWL", "Drivers", "CMSIS", "Include"),
@@ -217,6 +197,56 @@ inc_paths = [
     cores_join("external", "FatFs", "source"),
     cores_join("external", "spiffs", "src"),
 ]
+
+# ---------------------------------------------------------------------------
+# LoRaMac-node: auto-detect version (prefer oldest compatible API first)
+# ---------------------------------------------------------------------------
+
+lora_dir = None
+lora_ver_name = None
+# Prefer 4.4.7: the STM32WLE BSP service code (LmhpFragmentation.c, etc.)
+# uses the 4.4.7 LmhPackage_t API (IsRunning, OnSendRequest fields).
+for _lora_ver in ["LoRaMac-node-4.4.7", "LoRaMac-node-4.5.2", "LoRaMac-node-4.7.0"]:
+    _candidate = cores_join("external", "lora", _lora_ver)
+    if os.path.isdir(_candidate):
+        lora_dir = _candidate
+        lora_ver_name = _lora_ver
+        break
+
+lora_regions = [
+    "SUPPORT_LORA",
+    "SUPPORT_LORA_P2P",
+    "REGION_AS923",
+    "REGION_AU915",
+    "REGION_CN470",
+    "REGION_CN779",
+    "REGION_EU433",
+    "REGION_EU868",
+    "REGION_KR920",
+    "REGION_IN865",
+    "REGION_US915",
+    "REGION_RU864",
+]
+# LA915 requires LoRaMac-node >= 4.7.0
+if lora_ver_name and lora_ver_name >= "LoRaMac-node-4.7.0":
+    lora_regions.append("REGION_LA915")
+env.Append(CPPDEFINES=lora_regions)
+
+# Note: STM32WLE BSP LoRaMac-node 4.4.7 already defines LORAMAC_REGION_LA915 in
+# its LoRaMacRegion.h enum, so no shim is needed. service_lora.h compiles as-is.
+
+if lora_dir:
+    inc_paths += [
+        os.path.join(lora_dir, "src", "mac"),
+        os.path.join(lora_dir, "src", "mac", "region"),
+        os.path.join(lora_dir, "src", "radio"),
+        os.path.join(lora_dir, "src", "system"),
+        os.path.join(lora_dir, "src", "peripherals"),
+        os.path.join(lora_dir, "src", "boards"),
+        # LmHandler types — location differs by version: 4.4.7/4.5.2 keep it
+        # under apps/, while 4.7.0+ moved it to component/service/lora/LmHandler.
+        os.path.join(lora_dir, "src", "apps", "LoRaMac", "common", "LmHandler"),
+    ]
 
 # Filter out None entries and non-existent directories
 env.Append(CPPPATH=[p for p in inc_paths if p and os.path.isdir(p)])
@@ -312,7 +342,9 @@ generate_version_source(env.subst(version_c_path))
 
 src_filter = [
     "+<component/>",
-    "+<external/>",
+    "+<external/STM32CubeWL/>",
+    "+<external/FatFs/>",
+    "+<external/spiffs/>",
     "+<app/app_glue.cpp>",
     # Exclude .fuota alternate sources
     "-<**/*.c.fuota>",
@@ -323,6 +355,13 @@ src_filter = [
     "-<external/STM32CubeWL/Middlewares/Third_Party/FreeRTOS/Source/portable/IAR/>",
     "-<external/STM32CubeWL/Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/>",
 ]
+
+# Include only the selected LoRaMac-node version; exclude all others.
+if lora_ver_name:
+    src_filter.append("+<external/lora/%s/>" % lora_ver_name)
+    for _other_ver in ["LoRaMac-node-4.7.0", "LoRaMac-node-4.5.2", "LoRaMac-node-4.4.7"]:
+        if _other_ver != lora_ver_name:
+            src_filter.append("-<external/lora/%s/>" % _other_ver)
 
 libs = []
 
