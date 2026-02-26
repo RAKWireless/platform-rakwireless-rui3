@@ -19,7 +19,14 @@ class Rakwirelessrui3Platform(PlatformBase):
         board_config = self.board_config(board)
         core = board_config.get("build.core", "")
 
-        # Enable the correct framework package based on the MCU core
+        # Reset all BSP packages to optional so that a multi-environment project
+        # (e.g. rak3172 + rak4631) doesn't accumulate non-optional flags across
+        # successive configure_default_packages() calls on the same platform instance.
+        for name in self.packages:
+            if name.startswith("framework-rui3-"):
+                self.packages[name]["optional"] = True
+
+        # Enable only the BSP package required by this board's MCU core
         if core == "STM32WLE":
             self.packages["framework-rui3-stm32wle"]["optional"] = False
         elif core == "nRF5":
