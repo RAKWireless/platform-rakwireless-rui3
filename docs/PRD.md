@@ -535,7 +535,7 @@ rakwireless-platformio-rui3/
 - `configure_default_packages()`: enable/disable packages based on board's MCU family
 - Package version constraints
 
-**Deliverable**: Empty platform that PlatformIO recognizes and can install locally via `pio platform install file:///path/to/rakwireless-platformio-rui3`.
+**Deliverable**: Empty platform that PlatformIO recognizes and can install locally via `pio pkg install -p file:///path/to/rakwireless-platformio-rui3`.
 
 #### Step 1.2 — Board Definitions
 
@@ -567,7 +567,7 @@ No fork or repackaging needed. The upstream `RAK-STM32-RUI` repo is consumed dir
 3. Confirm the directory layout after unpacking (GitHub zips add a `RAK-STM32-RUI-RUI_5.0.0/` prefix directory — the builder script must account for this).
 4. Test that the package installs cleanly on all three OSes (watch for Windows long-path issues with deeply nested directories like `cores/STM32WLE/external/STM32CubeWL/`).
 
-**Deliverable**: `pio platform install file:///path/to/platform-rakwireless-rui3` triggers automatic download of the upstream BSP zip and unpacks it correctly.
+**Deliverable**: `pio pkg install -p file:///path/to/platform-rakwireless-rui3` triggers automatic download of the upstream BSP zip and unpacks it correctly.
 
 #### Step 1.4 — Builder Script (rui3_stm32wle.py)
 

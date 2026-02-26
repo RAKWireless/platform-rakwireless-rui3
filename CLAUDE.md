@@ -32,7 +32,10 @@ Custom PlatformIO platform wrapping the RAKwireless RUI3 BSP repos. Ships as a s
 
 ```bash
 # Install platform locally for testing
-pio platform install file:///path/to/this/repo
+pio pkg install -p file:///path/to/this/repo
+
+# Uninstall
+pio pkg uninstall -p rakwireless-rui3
 
 # Build example
 cd examples/lorawan-otaa && pio run
