@@ -120,7 +120,9 @@ class Rakwirelessrui3Platform(PlatformBase):
 
             # Apply BSP-specific compatibility patches
             if pkg_name == "framework-rui3-nrf52":
-                self._patch_nrf52_bsp(pkg_dir)
+                self._patch_fuota_packages(pkg_dir, "nRF5")
+            elif pkg_name == "framework-rui3-stm32wle":
+                self._patch_fuota_packages(pkg_dir, "STM32WLE")
 
             print("%s@%s has been installed!" % (pkg_name, semver))
 
@@ -130,18 +132,21 @@ class Rakwirelessrui3Platform(PlatformBase):
                 os.remove(tmp_zip)
 
     @staticmethod
-    def _patch_nrf52_bsp(pkg_dir):
+    def _patch_fuota_packages(pkg_dir, mcu_dir):
         """
-        Apply compatibility patches to the nRF52 BSP package files.
+        Apply compatibility patches to FUOTA package source files.
 
         The BSP's FUOTA package source files (LmhpFragmentation.c,
         LmhpClockSync.c, LmhpRemoteMcastSetup.c) were not updated for the
         LORA_STACK_104 API change that renamed LmhPackage_t.IsRunning to
         IsTxPending and removed OnSendRequest. This patch adds the required
         #ifdef LORA_STACK_104 guards so the files compile with either API.
+
+        Works for both BSPs; pass mcu_dir="nRF5" or mcu_dir="STM32WLE".
+        Handles CRLF line endings transparently (STM32 BSP uses CRLF).
         """
         packages_dir = os.path.join(
-            pkg_dir, "cores", "nRF5", "component", "service", "lora", "packages"
+            pkg_dir, "cores", mcu_dir, "component", "service", "lora", "packages"
         )
         patches = {
             "LmhpFragmentation.c": [
@@ -242,6 +247,9 @@ class Rakwirelessrui3Platform(PlatformBase):
                 continue
             with open(fpath, "r") as f:
                 content = f.read()
+            # Normalize CRLF → LF before matching so patches work for both
+            # nRF52 BSP (LF) and STM32WLE BSP (CRLF) without dual patch strings.
+            content = content.replace("\r\n", "\n")
             for old, new in file_patches:
                 if old in content:
                     content = content.replace(old, new)

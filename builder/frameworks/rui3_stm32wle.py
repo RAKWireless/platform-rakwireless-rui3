@@ -204,9 +204,10 @@ inc_paths = [
 
 lora_dir = None
 lora_ver_name = None
-# Prefer 4.4.7: the STM32WLE BSP service code (LmhpFragmentation.c, etc.)
-# uses the 4.4.7 LmhPackage_t API (IsRunning, OnSendRequest fields).
-for _lora_ver in ["LoRaMac-node-4.4.7", "LoRaMac-node-4.5.2", "LoRaMac-node-4.7.0"]:
+# Prefer 4.7.0: BSP v4.2.3_363+ service_lora.c uses NetworkActivation (4.5.2+)
+# and service_lora.h uses LORAMAC_REGION_LA915 (4.7.0+). LORA_STACK_104 (set
+# in board JSON) also aligns with the 4.7.0 LmhPackage_t API (IsTxPending).
+for _lora_ver in ["LoRaMac-node-4.7.0", "LoRaMac-node-4.5.2", "LoRaMac-node-4.4.7"]:
     _candidate = cores_join("external", "lora", _lora_ver)
     if os.path.isdir(_candidate):
         lora_dir = _candidate

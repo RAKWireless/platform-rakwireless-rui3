@@ -14,7 +14,7 @@
     "framework-rui3-stm32wle": {
       "type": "framework",
       "optional": true,
-      "version": "https://github.com/RAKWireless/RAK-STM32-RUI/archive/refs/tags/v4.1.2_319.zip"
+      "version": "https://github.com/RAKWireless/RAK-STM32-RUI/archive/refs/tags/v4.2.3_363.zip"
     },
     "framework-rui3-nrf52": {
       "type": "framework",
