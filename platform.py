@@ -31,6 +31,8 @@ class Rakwirelessrui3Platform(PlatformBase):
             self.packages["framework-rui3-stm32wle"]["optional"] = False
         elif core == "nRF5":
             self.packages["framework-rui3-nrf52"]["optional"] = False
+        elif core == "apollo3":
+            self.packages["framework-rui3-apollo3"]["optional"] = False
 
         return super().configure_default_packages(variables, targets)
 
@@ -123,6 +125,8 @@ class Rakwirelessrui3Platform(PlatformBase):
                 self._patch_fuota_packages(pkg_dir, "nRF5")
             elif pkg_name == "framework-rui3-stm32wle":
                 self._patch_fuota_packages(pkg_dir, "STM32WLE")
+            elif pkg_name == "framework-rui3-apollo3":
+                self._patch_fuota_packages(pkg_dir, "apollo3")
 
             print("%s@%s has been installed!" % (pkg_name, semver))
 
@@ -142,7 +146,7 @@ class Rakwirelessrui3Platform(PlatformBase):
         IsTxPending and removed OnSendRequest. This patch adds the required
         #ifdef LORA_STACK_104 guards so the files compile with either API.
 
-        Works for both BSPs; pass mcu_dir="nRF5" or mcu_dir="STM32WLE".
+        Works for all three BSPs; pass mcu_dir="nRF5", "STM32WLE", or "apollo3".
         Handles CRLF line endings transparently (STM32 BSP uses CRLF).
         """
         packages_dir = os.path.join(

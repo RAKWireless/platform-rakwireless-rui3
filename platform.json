@@ -21,6 +21,11 @@
       "optional": true,
       "version": "https://github.com/RAKWireless/RAK-nRF52-RUI/archive/refs/tags/v4.2.3_363.zip"
     },
+    "framework-rui3-apollo3": {
+      "type": "framework",
+      "optional": true,
+      "version": "https://github.com/RAKWireless/RAK-APOLLO3-RUI/archive/refs/tags/v4.2.3_363.zip"
+    },
     "toolchain-gccarmnoneeabi": {
       "type": "toolchain",
       "owner": "platformio",
@@ -67,6 +72,10 @@
     {
       "id": "rak3401",
       "name": "RAK3401"
+    },
+    {
+      "id": "rak11720",
+      "name": "RAK11720"
     }
   ]
 }
