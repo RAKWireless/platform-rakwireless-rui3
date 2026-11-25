@@ -15,11 +15,13 @@ Compiler and linker settings are not kept in this repo: the builder resolves the
 - `builder/rui3_recipe.py` — Resolves upstream `platform.txt` / `boards.txt` (board props, IDE menus, compile and link recipes) into SCons settings; no SCons imports, also used by `tools/`
 - `builder/buildtime.py` — Stamps BUILD_DATE / BUILD_TIME into a copy of the variant's `version.c`
 - `builder/nrf52_dfu.py` — nRF52 signed DFU package and serial upload, in pure Python (replaces nrfutil 6.1.7 and RAK's uploader.py)
+- `builder/stm32_ymodem.py` — STM32WLE serial upload over YMODEM (replaces RAK's uploader_ymodem.py)
+- `builder/apollo3_ota.py` — Apollo3 OTA package and serial upload over AMOTA (replaces the BSP's ota_binary_converter.py and apollo3_uart_update_script.py)
 - `tools/bsp.py` — Repackages upstream BSP tags into framework tarballs (`package`) and points `platform.json` at them (`pin`)
 - `tools/bsp_patches.py` — Compatibility patches applied while repackaging
 - `tools/boards.py` — Generates `boards/*.json`, the board list in `platform.json`, and `docs/boards.md`
 - `examples/` — Example PlatformIO projects (lorawan-otaa, system-info)
-- `tests/` — `python -m unittest discover -s tests` (the serial upload tests need pyserial: use PlatformIO's Python, `~/.platformio/penv/bin/python`)
+- `tests/` — `python -m unittest discover -s tests` (the serial upload tests run against simulated boards on a pty and need pyserial: use PlatformIO's Python, `~/.platformio/penv/bin/python`)
 
 ## Conventions
 
@@ -39,7 +41,7 @@ Compiler and linker settings are not kept in this repo: the builder resolves the
 1. **Phase 1 (DONE)**: STM32WLE / RAK3172 family — builds on 4.3.0: Flash 89.1%, RAM 70.8%
 2. **Phase 2 (DONE)**: nRF52 / RAK4631 — builds on 4.3.0: Flash 56.1%, RAM 37.5%
 3. **Phase 3 (DONE)**: Apollo3 / RAK11720 — builds on 4.3.0: Flash 29.4%, RAM 39.8%
-4. **Phase 4**: Polish, upload support (nRF52 done; STM32 and Apollo3 next, both YMODEM via `uploader_ymodem` upstream), CI/CD, docs, publish (GitHub releases first; PlatformIO registry later)
+4. **Phase 4**: Polish, upload support (serial upload for all three families; verified on a RAK4631, a RAK3172 and a RAK11720), CI/CD, docs, publish (GitHub releases first; PlatformIO registry later)
 
 Known upstream bug: `rak5010` does not compile on 4.2.3 or 4.3.0, in the Arduino IDE either (`LoRaMac.c` uses `NUM_OF_KEYS`, which only exists with `SOFT_SE`, and RAK5010 does not define it).
 
@@ -89,14 +91,26 @@ pio boards --installed
 
 ## Upload
 
-nRF52 boards (`upload_protocol = nrfutil`, the default) upload over USB serial, like the Arduino IDE. `pio run -t upload`:
-1. Builds `firmware.zip`, the signed DFU package. Its settings (hardware and application version, SoftDevice id, signing key `security/private.key`) are parsed from the nrfutil command in the BSP's `recipe.objcopy.zip.pattern`. An option `nrf52_dfu.package_options()` does not know fails the build.
-2. Sends `at+boot`. RUI3 then restarts into its bootloader; this also works when the sketch uses the port for its own data. RUI3 does not implement the 1200-baud touch that `boards.txt` asks the IDE for, so the manifests' `use_1200bps_touch` is upstream data the uploader ignores.
-3. Waits 3 s for the port, then runs Nordic's serial DFU (SLIP frames: ping, PRN 0, MTU, init packet, 4 KB data objects), with nrfutil's timings and `rtscts`.
+`pio run -t upload` goes through the board's serial port and the RUI3 bootloader, like the Arduino IDE, for every family:
 
-The package is byte-identical to nrfutil's except the signature: nrfutil uses a random ECDSA nonce, `nrf52_dfu.py` an RFC 6979 one, so the same firmware always gives the same package. Standalone use: `python builder/nrf52_dfu.py upload --port /dev/ttyACM0 .pio/build/<env>/firmware.zip`.
+| Family | `upload_protocol` (default) | Image sent | Module |
+|---|---|---|---|
+| nRF52 | `nrfutil` | `firmware.zip` (signed DFU package) | `builder/nrf52_dfu.py` |
+| STM32WLE | `ymodem` | `firmware.bin` | `builder/stm32_ymodem.py` |
+| Apollo3 | `amota` | `firmware_Nonsecure_OTA_Package_UART.bin` (OTA package) | `builder/apollo3_ota.py` |
 
-STM32 and Apollo3 boards fail `-t upload` with an explicit message until their YMODEM uploader exists.
+Each uploader first sends `at+boot`, and the running firmware restarts into its bootloader. RUI3's serial driver watches for the string even when the sketch uses the port for its own data. RUI3 does not implement the 1200-baud touch that `boards.txt` asks the IDE for, so the manifests' `use_1200bps_touch` is upstream data the uploaders ignore. Package settings are read from the BSP's recipes; an option the module does not implement fails the build, so upstream changes are noticed.
+
+- **nRF52**: the DFU package settings (hardware and application version, SoftDevice id, signing key `security/private.key`) come from the nrfutil command in `recipe.objcopy.zip.pattern`. After `at+boot` the native USB port re-enumerates; the uploader waits 3 s for it, then runs Nordic's serial DFU (SLIP frames: ping, PRN 0, MTU, init packet, 4 KB data objects) with nrfutil's timings and `rtscts`. The package is byte-identical to nrfutil's except the signature: nrfutil uses a random ECDSA nonce, `nrf52_dfu.py` an RFC 6979 one, so the same firmware always gives the same package. Verified on a RAK4631.
+- **STM32WLE**: the RUI3 bootloader answers unknown commands with "AT not support.", which tells whether the board is already in it. Otherwise `at+boot` goes out at 115200; if neither firmware nor bootloader answers, the uploader looks for the AT console at the baud rates RAK's uploader tries. Then `at+update` and YMODEM-1K. The frames are byte-identical to RAK's `uploader_ymodem.py`. Unlike RAK's uploader, it also works when the sketch uses the port in data mode, and it does not resend blocks on the receiver's periodic 'C'. Verified on a RAK3172 with the 4.3.0 bootloader (`RUI_BOOT_0.9`): about 32 s for a 179 KB image, and the bootloader starts the new app by itself.
+  - The bootloader reads the UART only between answers: a command sent while it is still answering the previous one is lost (this lost `at+update` on hardware). Commands to it wait for 0.3 s of quiet on the line, and `at+update` is retried if no 'C' follows. The simulated bootloader in `tests/` loses input the same way.
+  - **RUI3 5.x FUOTA boards**: a board that came with RUI 5.x can have the 5.x FUOTA bootloader (`RUI_BOOT_0.8`, has `at+fuota`), which keeps the LoRaWAN stack in its own partition at `0x0801E000`. Given a 4.x image it writes only the first 92 KB, acknowledges every block, then faults calling into the stack partition; the board stops answering and needs SWD. So before `at+boot` the uploader asks `AT+VER=?` and refuses a board of another RUI3 major version than the BSP's (`RUI3_VERSION`, from `platform.txt` `version`); `upload_flags = --force` skips the check. A sketch that owns the port cannot be asked and is uploaded unchecked.
+  - Recovery over SWD (any CMSIS-DAP probe, e.g. a RAKDAP1, with PlatformIO's `tool-openocd`: `-f interface/cmsis-dap.cfg -c "transport select swd" -f target/stm32wlx.cfg`): RDP is level 0 on RAK3172s. A 4.x bootloader is `prebuilt/bootloader_stm32wle5xx.hex` plus `prebuilt/stm32wle5xx_bootloader_active_0x08004000.hex` (the `5a5a5a5a` "start the app" flag), written after erasing `0x08000000`–`0x08005FFF`. The BSP's "Burn Bootloader" recipe does not work for STM32 (it names a missing `prebuilt/bootloader.hex` and an undefined `program.burn_pattern`).
+- **Apollo3**: `platform.txt` calls the tool `uploader_ymodem`, but it runs the BSP's `apollo3_uart_update_script.py`, which speaks Ambiq's AMOTA framing, not YMODEM. The upload recipe's `-f` names the package it sends; the objcopy recipe that builds that file with `ota_binary_converter` gives the package settings (the other converter recipe builds a Bluetooth OTA package, not built here). Package and requests are byte-identical to the BSP scripts'. Upload: `AT+BOOT` twice, `AT+UPDATE`, then header, 512-byte data, verify and reset requests. Verified on a RAK11720 (from RUI 4.0.6, bootloader `RUI_BOOT_0.3`): about 36 s for a 270 KB package. The protocol and converter are unchanged since 4.0.6. PlatformIO's OpenOCD has no Apollo3 support, so a RAKDAP1 cannot recover an Apollo3 board (a J-Link can).
+
+The STM32WLE and Apollo3 boards reach USB through a CH340 bridge, so their port stays open while the module restarts. Upload port detection matches `build.hwids`: RUI3's own USB ids on nRF52 (from the variant's `sdk_config.h`), the CH340's elsewhere (Apollo3's `boards.txt` copies the nRF52 ids; `tools/boards.py` replaces them). To check which firmware a board runs after an upload, ask `AT+VER=?` and `AT+BUILDTIME=?` (the build time `buildtime.py` stamps): `api.system.firmwareVersion.get()` and `cliVersion.get()` return strings kept in the board's settings, which still name the previous version after updating over older settings. `jlink` and `stlink` in the manifests fail `-t upload` with an explicit message (not implemented).
+
+Standalone use: `python builder/nrf52_dfu.py upload --port /dev/ttyACM0 firmware.zip`, `python builder/stm32_ymodem.py --port /dev/ttyUSB0 [--rui3-version 4.3.0] firmware.bin`, `python builder/apollo3_ota.py upload --port /dev/ttyUSB0 firmware_Nonsecure_OTA_Package_UART.bin`.
 
 ## Key Reference Files (local only, not in repo)
 

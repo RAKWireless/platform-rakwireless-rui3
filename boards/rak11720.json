@@ -5,8 +5,8 @@
     "f_cpu": "48000000L",
     "hwids": [
       [
-        "0x239A",
-        "0x8029"
+        "0x1A86",
+        "0x7523"
       ]
     ],
     "mcu": "ama3b1kk",
@@ -26,8 +26,9 @@
   "upload": {
     "maximum_ram_size": 392192,
     "maximum_size": 917504,
-    "protocol": "jlink",
+    "protocol": "amota",
     "protocols": [
+      "amota",
       "jlink"
     ],
     "use_1200bps_touch": true,

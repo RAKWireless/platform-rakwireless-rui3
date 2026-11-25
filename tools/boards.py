@@ -26,6 +26,7 @@ import argparse
 import collections
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -72,6 +73,9 @@ PRODUCTS = [
 # Board whose curated fields seed a new board of the same family.
 FAMILY_TEMPLATE = {"stm32wle": "rak3172", "nrf52": "rak4631", "apollo3": "rak11720"}
 
+# USB-UART bridge on the WisBlock cores of MCUs without USB (WCH CH340).
+CH340_IDS = ("0x1A86", "0x7523")
+
 # Keys earlier manifests used to carry compiler settings; the builder now
 # takes these from the BSP recipes.
 OBSOLETE_BUILD_KEYS = (
@@ -106,8 +110,25 @@ def current_text(path):
 
 
 # ---------------------------------------------------------------------------
-# Loading boards.txt / platform.txt
+# Loading boards.txt / platform.txt / the variants' sdk_config.h
 # ---------------------------------------------------------------------------
+
+def _wanted(name):
+    """BSP files the generator reads, by their path inside the BSP ("/"-separated)."""
+    parts = name.split("/")
+    return name in ("boards.txt", "platform.txt") or (
+        len(parts) == 3 and parts[0] == "variants" and parts[2] == "sdk_config.h")
+
+
+def _extract(dest, name, data):
+    path = os.path.join(dest, *name.split("/"))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        if isinstance(data, bytes):
+            f.write(data)
+        else:
+            shutil.copyfileobj(data, f)
+
 
 def load_bsp(family, tag, args, workdir):
     info = bsp_tool.MCU_FAMILIES[family]
@@ -115,21 +136,24 @@ def load_bsp(family, tag, args, workdir):
     os.makedirs(dest)
     if args.git_root:
         git_dir = os.path.join(args.git_root, info["upstream"].split("/", 1)[1])
-        for name in ("boards.txt", "platform.txt"):
+        listing = subprocess.run(["git", "-C", git_dir, "ls-tree", "-r", "--name-only", tag],
+                                 check=True, capture_output=True, text=True).stdout
+        for name in filter(_wanted, listing.splitlines()):
             data = subprocess.run(["git", "-C", git_dir, "show", "%s:%s" % (tag, name)],
                                   check=True, capture_output=True).stdout
-            with open(os.path.join(dest, name), "wb") as f:
-                f.write(data)
+            _extract(dest, name, data)
     else:
         archive = os.path.join(args.dist, bsp_tool.asset_name(family, tag))
         if not os.path.isfile(archive):
             raise SystemExit("error: %s not found; run `tools/bsp.py package --tag %s` "
                              "or pass --git-root" % (archive, tag))
         with tarfile.open(archive, "r:gz") as tar:
-            for name in ("boards.txt", "platform.txt"):
-                member = tar.extractfile(name)
-                with open(os.path.join(dest, name), "wb") as f:
-                    shutil.copyfileobj(member, f)
+            for member in tar:
+                if member.isfile() and _wanted(member.name):
+                    _extract(dest, member.name, tar.extractfile(member))
+    for name in ("boards.txt", "platform.txt"):
+        if not os.path.isfile(os.path.join(dest, name)):
+            raise SystemExit("error: %s %s has no %s" % (family, tag, name))
     return rui3_recipe.Bsp(dest)
 
 
@@ -149,7 +173,39 @@ def _f_cpu(value):
     return value + "L" if value.isdigit() else value
 
 
-def build_manifest(upstream_id, name, url, props, existing, template):
+def usb_ids(bsp, props):
+    """(vid, pid) of the board's USB serial port as hex strings, or None.
+
+    nRF52 boards.txt files name Adafruit's bootloader ids (239A:8029), which a
+    RUI3 board never shows: its USB stack is Nordic's app_usbd, configured by
+    APP_USBD_VID / APP_USBD_PID in the variant's sdk_config.h (1915:521F), and
+    the RUI3 bootloader enumerates with the same ids. Upload port detection
+    matches on these, so the variant's values win on nRF52. STM32 boards keep
+    the boards.txt ids: the STM32 variants carry leftover copies of an nRF52
+    sdk_config.h, but the STM32WLE has no USB peripheral and those boards
+    reach the host through a USB-UART bridge (CH340, as boards.txt says).
+
+    The Apollo3 has no USB peripheral either, yet its boards.txt copies the
+    nRF52 boards' 239A:8029, which would make an Apollo3 upload pick a
+    connected nRF52 board. The RAK11722 reaches USB through a CH340 like the
+    STM32 WisBlock cores, so Apollo3 boards get the CH340's ids.
+    """
+    core = props.get("build.core", "").strip()
+    if core == "apollo3":
+        return CH340_IDS
+    variant = props.get("build.variant", "").strip()
+    path = os.path.join(bsp.root, "variants", variant, "sdk_config.h")
+    if core == "nRF5" and variant and os.path.isfile(path):
+        with open(path, errors="replace") as f:
+            found = dict(re.findall(r"^\s*#define\s+APP_USBD_(VID|PID)\s+(0x[0-9A-Fa-f]+)\b",
+                                    f.read(), re.M))
+        if "VID" in found and "PID" in found:
+            return found["VID"], found["PID"]
+    vid, pid = props.get("build.vid", "").strip(), props.get("build.pid", "").strip()
+    return (vid, pid) if vid and pid else None
+
+
+def build_manifest(upstream_id, name, url, props, existing, template, usb=None):
     manifest = json.loads(json.dumps(existing or template or {}))
     build = manifest.setdefault("build", {})
     for key in OBSOLETE_BUILD_KEYS:
@@ -160,10 +216,10 @@ def build_manifest(upstream_id, name, url, props, existing, template):
     build["variant"] = props.get("build.variant", "")
     build.setdefault("mcu", (template or {}).get("build", {}).get("mcu", ""))
     build["rui3"] = {"board": upstream_id}
-    # USB ids of the board's serial port, so uploads find it among others.
-    vid, pid = props.get("build.vid", "").strip(), props.get("build.pid", "").strip()
-    if vid and pid:
-        build["hwids"] = [["0x%04X" % int(vid, 16), "0x%04X" % int(pid, 16)]]
+    # USB ids of the board's serial port (see usb_ids()), so uploads find it
+    # among others.
+    if usb:
+        build["hwids"] = [["0x%04X" % int(usb[0], 16), "0x%04X" % int(usb[1], 16)]]
     else:
         build.pop("hwids", None)
 
@@ -270,7 +326,8 @@ def main(argv=None):
                 path = os.path.join(boards_dir, board_id + ".json")
                 existing, eol = read_json(path) if os.path.isfile(path) else (None, "\r\n")
                 props = bsp.board_props(upstream_id)
-                manifest = build_manifest(upstream_id, name, url, props, existing, template)
+                manifest = build_manifest(upstream_id, name, url, props, existing, template,
+                                          usb_ids(bsp, props))
                 outputs[path] = (render_json(manifest), eol)
                 entries.append({"id": board_id, "upstream": upstream_id, "manifest": manifest,
                                 "menus": bsp.menus(upstream_id), "new": existing is None})

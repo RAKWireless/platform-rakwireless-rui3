@@ -101,6 +101,11 @@ env.Append(
 # passed twice.
 env.Replace(LDSCRIPT_PATH=cfg.ldscript)
 
+# The RUI3 version of the BSP (platform.txt "version", e.g. 4.3.0 or
+# RUI_5.0.2). The STM32 uploader refuses boards that run another major
+# version (see builder/stm32_ymodem.py).
+env.Replace(RUI3_VERSION=cfg.props.get("version", "").strip())
+
 # nRF52 firmware is uploaded as a signed DFU package. Its settings (hardware
 # and application version, SoftDevice id, signing key) are arguments of the
 # nrfutil command in the BSP's zip recipe; builder/main.py builds the package.
@@ -112,6 +117,25 @@ if family["arch"] == "nrf52":
             env.Replace(RUI3_DFU=nrf52_dfu.package_options(zip_recipe))
         except nrf52_dfu.DfuError as exc:
             fail(str(exc))
+
+# Apollo3 firmware is uploaded as an OTA package. The BSP's upload recipe
+# names the file it sends; the objcopy recipe that builds that file with
+# ota_binary_converter holds the package settings (load address, version).
+# The other objcopy recipes build a package for Bluetooth OTA updates, which
+# this platform does not build.
+elif family["arch"] == "apollo3":
+    import apollo3_ota  # noqa: E402
+    upload_recipe = bsp.recipe(
+        "tools.%s.upload.pattern" % cfg.props.get("upload.tool", ""), cfg.props)
+    objcopy_recipes = [
+        bsp.recipe(key, cfg.props) for key in sorted(cfg.props)
+        if key.startswith("recipe.objcopy.") and key.endswith(".pattern")]
+    try:
+        env.Replace(RUI3_OTA=apollo3_ota.package_options(
+            upload_recipe, objcopy_recipes,
+            bsp.expand("{build.path}/{build.project_name}.bin", cfg.props)))
+    except apollo3_ota.OtaError as exc:
+        fail(str(exc))
 
 # BSP code embeds __FILE__ in assert and log messages, so the firmware would
 # otherwise carry the absolute install path of the package: different on
