@@ -14,7 +14,7 @@ release of this repository, and platform.json points at those assets.
 Examples:
 
   python tools/bsp.py package --tag v4.3.0_400
-  python tools/bsp.py package --tag v4.3.0_400 --git-root references
+  python tools/bsp.py package --tag v4.3.0_400 --git-root ~/src/rui3
   python tools/bsp.py pin --tag v4.3.0_400 --platform-version 4.3.0
 
 Standard library only, so it runs unchanged on Linux, macOS and Windows.
@@ -320,8 +320,8 @@ def main(argv=None):
     p.add_argument("--out", default=os.path.join(PLATFORM_DIR, "dist"),
                    help="output directory (default: dist/)")
     p.add_argument("--git-root",
-                   help="read tags from local clones under this folder (e.g. references/) "
-                        "instead of downloading from GitHub")
+                   help="read tags from local clones under this folder (RAK-STM32-RUI/, "
+                        "RAK-nRF52-RUI/, RAK-APOLLO3-RUI/) instead of downloading from GitHub")
     p.set_defaults(func=cmd_package)
 
     p = sub.add_parser("pin", help="point platform.json at the release assets for --tag")

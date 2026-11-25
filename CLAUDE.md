@@ -19,7 +19,7 @@ Compiler and linker settings are not kept in this repo: the builder resolves the
 - `builder/apollo3_ota.py` — Apollo3 OTA package and serial upload over AMOTA (replaces the BSP's ota_binary_converter.py and apollo3_uart_update_script.py)
 - `tools/bsp.py` — Repackages upstream BSP tags into framework tarballs (`package`) and points `platform.json` at them (`pin`)
 - `tools/bsp_patches.py` — Compatibility patches applied while repackaging
-- `tools/boards.py` — Generates `boards/*.json`, the board list in `platform.json`, and `docs/boards.md`
+- `tools/boards.py` — Generates `boards/*.json`, the board list in `platform.json`, and the two generated blocks of `README.md` (board table, board options); the rest of the README is written by hand
 - `examples/` — Example PlatformIO projects (lorawan-otaa, system-info)
 - `tests/` — `python -m unittest discover -s tests` (the serial upload tests run against simulated boards on a pty and need pyserial: use PlatformIO's Python, `~/.platformio/penv/bin/python`)
 
@@ -29,7 +29,7 @@ Compiler and linker settings are not kept in this repo: the builder resolves the
 - **Pure Python tools**: No platform-specific executables. All build helpers are Python.
 - **No upstream forks**: Build logic wraps the upstream BSP as-is. Fork only as last resort.
 - **Upstream is the source of truth for build settings**: never copy flags, defines or include paths into board manifests or the builder. Board manifests only name the upstream board (`build.rui3.board`); anything else that differs from Arduino needs a comment explaining why.
-- **Board options**: the Arduino IDE menus are exposed as `board_build.rui3.<menu> = <option id or label>` (case-insensitive, since PlatformIO lowercases option names). Defaults are the first option in `boards.txt`, as in the IDE. `docs/boards.md` lists them per board.
+- **Board options**: the Arduino IDE menus are exposed as `board_build.rui3.<menu> = <option id or label>` (case-insensitive, since PlatformIO lowercases option names). Defaults are the first option in `boards.txt`, as in the IDE. The README lists them per board.
 - **One board per product**: `PRODUCTS` in `tools/boards.py` lists every PlatformIO board with its upstream board, name and docs URL. A WisDuo module and the WisBlock Core built around it are separate boards sharing one upstream board (RAK4630 + RAK4631 → `WisCoreRAK4631Board`). Names follow `<part> <family> (<module inside>)`, e.g. `RAK4631 WisBlock Core (RAK4630)`.
 - **Board ids are public**: never rename one. A new upstream board needs a `PRODUCTS` entry (the generator warns).
 - **Curated board fields** (debug, upload protocols, `build.mcu`) are kept by the generator; edit them in `boards/*.json`, then run `tools/boards.py --check` to confirm the file is stable. Names and URLs are edited in `PRODUCTS`.
@@ -61,9 +61,9 @@ To move to a new upstream tag:
 
 ```bash
 python tools/bsp.py package --tag vX.Y.Z_NNN                       # downloads from GitHub into dist/
-python tools/bsp.py package --tag vX.Y.Z_NNN --git-root references # or from local clones
+python tools/bsp.py package --tag vX.Y.Z_NNN --git-root <clones>    # or from local clones
 python tools/bsp.py pin --tag vX.Y.Z_NNN --platform-version X.Y.0
-python tools/boards.py --tag vX.Y.Z_NNN                            # boards/, platform.json, docs/boards.md
+python tools/boards.py --tag vX.Y.Z_NNN                             # boards/, platform.json, README.md tables
 ```
 
 Another BSP version (a 5.x beta, an older 4.x) can be used per project without changing the platform: `platform_packages = framework-rui3-nrf52 @ file:///path/to/framework-rui3-nrf52-<tag>.tar.gz`.
@@ -72,10 +72,10 @@ Another BSP version (a 5.x beta, an older 4.x) can be used per project without c
 
 Framework tarballs are found without any published release when they sit in `dist/` next to the platform (where `tools/bsp.py package` writes them). `RUI3_BSP_DIST` (a folder or base URL) takes precedence over both `dist/` and the release URL. PlatformIO only reinstalls a framework when its spec changes, so after rebuilding a tarball with the same name, remove the installed package first.
 
-Prefer `symlink://` when testing a working copy: `file://` copies the whole folder into `~/.platformio/platforms/`, including `references/` (~1.8 GB) and `.git`.
+Prefer `symlink://` when testing a working copy: `file://` copies the whole folder into `~/.platformio/platforms/`, including `.git` and any local folders kept in the working copy (BSP clones are ~1.8 GB).
 
 ```bash
-python tools/bsp.py package --tag v4.3.0_400 --git-root references   # once, into dist/
+python tools/bsp.py package --tag v4.3.0_400 --git-root <clones>     # once, into dist/
 
 # In an example's platformio.ini (or pio pkg install -g -p symlink:///path/to/this/repo):
 #   platform = symlink:///path/to/this/repo
@@ -114,7 +114,7 @@ Standalone use: `python builder/nrf52_dfu.py upload --port /dev/ttyACM0 firmware
 
 ## Key Reference Files (local only, not in repo)
 
-- `references/RAK-STM32-RUI/`, `references/RAK-nRF52-RUI/`, `references/RAK-APOLLO3-RUI/` — full upstream clones. Their working trees sit on the stale `main` branch; read a release with `git show <tag>:<path>`. Releases come from `RUI_4.2-branch` (4.x) and `RUI_5.0-branch` (5.x beta).
+- Local clones of `RAK-STM32-RUI`, `RAK-nRF52-RUI` and `RAK-APOLLO3-RUI`, side by side in one folder (the `<clones>` passed as `--git-root`). Their working trees sit on the stale `main` branch; read a release with `git show <tag>:<path>`. Releases come from `RUI_4.2-branch` (4.x) and `RUI_5.0-branch` (5.x beta).
 - Each BSP's `boards.txt` / `platform.txt` — the recipes the builder resolves at build time
 
 ## Framework packaging

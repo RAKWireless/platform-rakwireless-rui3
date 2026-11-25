@@ -1,3 +1,8 @@
+# General
+.*
+!.gitignore
+!.github
+
 # PlatformIO
 .pio/
 .pioenvs/
@@ -18,12 +23,6 @@ __pycache__/
 dist/
 build/
 *.egg
-
-# Reference repos (cloned locally for development, not shipped)
-references/
-
-# Claude
-.claude/
 
 # Repackaged framework tarballs (tools/bsp.py package)
 dist/
