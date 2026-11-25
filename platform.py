@@ -1,264 +1,81 @@
-import json
 import os
-import re
-import shutil
-import tempfile
-import urllib.request
-import zipfile
+import sys
 
 from platformio.public import PlatformBase
 
+# Framework packages are repackaged upstream BSP tags (see tools/bsp.py) that
+# platform.json references by release-asset URL. The same file names are also
+# looked up, in this order, in:
+#   - RUI3_BSP_DIST: a local folder or another base URL (CI uses it to test
+#     freshly built tarballs before they are published);
+#   - dist/ next to this file, where `tools/bsp.py package` writes them, so a
+#     platform installed from a working copy builds without any release.
+BSP_DIST_ENV = "RUI3_BSP_DIST"
+LOCAL_DIST_DIR = "dist"
+
+CORE_TO_PACKAGE = {
+    "STM32WLE": "framework-rui3-stm32wle",
+    "nRF5": "framework-rui3-nrf52",
+    "apollo3": "framework-rui3-apollo3",
+}
+
 
 class Rakwirelessrui3Platform(PlatformBase):
+
+    _dist_notice_shown = False
 
     def is_embedded(self):
         return True
 
     def configure_default_packages(self, variables, targets):
         board = variables.get("board")
-        board_config = self.board_config(board)
-        core = board_config.get("build.core", "")
+        core = self.board_config(board).get("build.core", "")
 
-        # Reset all BSP packages to optional so that a multi-environment project
-        # (e.g. rak3172 + rak4631) doesn't accumulate non-optional flags across
-        # successive configure_default_packages() calls on the same platform instance.
-        for name in self.packages:
-            if name.startswith("framework-rui3-"):
+        # Reset every BSP package to optional first: in a multi-environment
+        # project (rak3172 + rak4631) the same platform instance is configured
+        # once per environment, and flags left over from the previous
+        # environment would make PlatformIO install BSPs this board never uses.
+        for name in CORE_TO_PACKAGE.values():
+            if name in self.packages:
                 self.packages[name]["optional"] = True
+        if core in CORE_TO_PACKAGE:
+            self.packages[CORE_TO_PACKAGE[core]]["optional"] = False
 
-        # Enable only the BSP package required by this board's MCU core
-        if core == "STM32WLE":
-            self.packages["framework-rui3-stm32wle"]["optional"] = False
-        elif core == "nRF5":
-            self.packages["framework-rui3-nrf52"]["optional"] = False
-        elif core == "apollo3":
-            self.packages["framework-rui3-apollo3"]["optional"] = False
-
+        self._apply_bsp_dist_override()
         return super().configure_default_packages(variables, targets)
 
-    def install_required_packages(self, force=False):
-        for name, options in self.packages.items():
-            if options.get("optional"):
-                continue
+    def _apply_bsp_dist_override(self):
+        env_dist = os.environ.get(BSP_DIST_ENV, "").strip()
+        if env_dist and "://" not in env_dist:
+            env_dist = os.path.abspath(os.path.expanduser(env_dist))
+        local_dist = os.path.join(self.get_dir(), LOCAL_DIST_DIR)
 
+        sources = set()
+        for name in CORE_TO_PACKAGE.values():
+            options = self.packages.get(name)
+            if not options:
+                continue
+            # A user's platform_packages override has already replaced the
+            # version with its own spec; only rewrite release-asset URLs.
             version = options.get("version", "")
-            if name.startswith("framework-rui3-") and version.startswith("http"):
-                self._install_rak_bsp(name, version, force=force)
-            else:
-                self.install_package(name, force=force)
-
-    def _install_rak_bsp(self, pkg_name, zip_url, force=False):
-        """
-        Download a RAK BSP zip, inject package.json and .piopm metadata
-        (both absent from upstream), and install into the PlatformIO packages
-        directory so get_package_dir() can find it.
-        """
-        from platformio.package.meta import PackageItem, PackageMetadata, PackageSpec
-
-        pkg_dir = os.path.join(self.pm.package_dir, pkg_name)
-        if not force and os.path.isdir(pkg_dir):
-            return
-
-        print("Downloading %s ..." % zip_url)
-        tmp_zip = tempfile.mktemp(suffix=".zip")
-        tmp_dir = tempfile.mkdtemp(prefix="rak-bsp-")
-
-        try:
-            urllib.request.urlretrieve(zip_url, tmp_zip)
-
-            with zipfile.ZipFile(tmp_zip, "r") as zf:
-                zf.extractall(tmp_dir)
-
-            # GitHub zips have a single top-level REPO-TAG/ directory
-            entries = os.listdir(tmp_dir)
-            if len(entries) == 1 and os.path.isdir(os.path.join(tmp_dir, entries[0])):
-                extracted_root = os.path.join(tmp_dir, entries[0])
-            else:
-                extracted_root = tmp_dir
-
-            # Derive a semver-compatible version from the tag in the URL
-            # e.g. "v5.0.2_350" → "5.0.2"
-            tag_match = re.search(r"tags/(.+)\.zip", zip_url)
-            tag = tag_match.group(1) if tag_match else "0.0.0"
-            semver = re.sub(r"^v", "", re.split(r"[_\-]", tag)[0])
-            if not re.match(r"^\d+\.\d+\.\d+", semver):
-                semver = "0.0.0"
-
-            # Inject package.json only if the BSP does not already ship one.
-            # If RAK's upstream repo includes package.json (e.g. after a PR is merged),
-            # we use theirs and read the version from it.
-            pkg_json_path = os.path.join(extracted_root, "package.json")
-            if os.path.isfile(pkg_json_path):
-                with open(pkg_json_path) as f:
-                    existing = json.load(f)
-                semver = existing.get("version", semver)
-            else:
-                pkg_json = {
-                    "name": pkg_name,
-                    "version": semver,
-                    "description": "RAKwireless RUI3 BSP (%s)" % tag,
-                }
-                with open(pkg_json_path, "w") as f:
-                    json.dump(pkg_json, f, indent=2)
-
-            # Replace existing installation if forced
-            if force and os.path.isdir(pkg_dir):
-                shutil.rmtree(pkg_dir)
-
-            shutil.copytree(extracted_root, pkg_dir)
-
-            # Write .piopm so get_package_dir() can resolve this package
-            from platformio.package.meta import PackageType
-            pkg_item = PackageItem(
-                pkg_dir,
-                PackageMetadata(
-                    type=PackageType.TOOL,
-                    name=pkg_name,
-                    version=semver,
-                    spec=PackageSpec(name=pkg_name, uri=zip_url),
-                ),
-            )
-            pkg_item.dump_meta()
-
-            # Apply BSP-specific compatibility patches
-            if pkg_name == "framework-rui3-nrf52":
-                self._patch_fuota_packages(pkg_dir, "nRF5")
-            elif pkg_name == "framework-rui3-stm32wle":
-                self._patch_fuota_packages(pkg_dir, "STM32WLE")
-            elif pkg_name == "framework-rui3-apollo3":
-                self._patch_fuota_packages(pkg_dir, "apollo3")
-
-            print("%s@%s has been installed!" % (pkg_name, semver))
-
-        finally:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            if os.path.isfile(tmp_zip):
-                os.remove(tmp_zip)
-
-    @staticmethod
-    def _patch_fuota_packages(pkg_dir, mcu_dir):
-        """
-        Apply compatibility patches to FUOTA package source files.
-
-        The BSP's FUOTA package source files (LmhpFragmentation.c,
-        LmhpClockSync.c, LmhpRemoteMcastSetup.c) were not updated for the
-        LORA_STACK_104 API change that renamed LmhPackage_t.IsRunning to
-        IsTxPending and removed OnSendRequest. This patch adds the required
-        #ifdef LORA_STACK_104 guards so the files compile with either API.
-
-        Works for all three BSPs; pass mcu_dir="nRF5", "STM32WLE", or "apollo3".
-        Handles CRLF line endings transparently (STM32 BSP uses CRLF).
-        """
-        packages_dir = os.path.join(
-            pkg_dir, "cores", mcu_dir, "component", "service", "lora", "packages"
-        )
-        patches = {
-            "LmhpFragmentation.c": [
-                # Fix: .IsRunning → .IsTxPending when LORA_STACK_104
-                (
-                    "    .IsRunning = LmhpFragmentationIsRunning,",
-                    "#ifdef LORA_STACK_104\n"
-                    "    .IsTxPending = LmhpFragmentationIsRunning,\n"
-                    "#else\n"
-                    "    .IsRunning = LmhpFragmentationIsRunning,\n"
-                    "#endif",
-                ),
-                # Fix: .OnSendRequest = NULL only when not LORA_STACK_104
-                (
-                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
-                    "    .OnDeviceTimeRequest = NULL,",
-                    "#ifndef LORA_STACK_104\n"
-                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
-                    "#endif\n"
-                    "    .OnDeviceTimeRequest = NULL,",
-                ),
-                # Fix: replace OnSendRequest call with LmHandlerSend in LORA_STACK_104
-                (
-                    "            LmhpFragmentationPackage.OnSendRequest( &cmdReplyAppData, LORAMAC_HANDLER_UNCONFIRMED_MSG );",
-                    "#ifdef LORA_STACK_104\n"
-                    "            LmHandlerSend( &cmdReplyAppData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
-                    "#else\n"
-                    "            LmhpFragmentationPackage.OnSendRequest( &cmdReplyAppData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
-                    "#endif",
-                ),
-            ],
-            "LmhpClockSync.c": [
-                (
-                    "    .IsRunning = LmhpClockSyncIsRunning,",
-                    "#ifdef LORA_STACK_104\n"
-                    "    .IsTxPending = LmhpClockSyncIsRunning,\n"
-                    "#else\n"
-                    "    .IsRunning = LmhpClockSyncIsRunning,\n"
-                    "#endif",
-                ),
-                (
-                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
-                    "    .OnDeviceTimeRequest = NULL,",
-                    "#ifndef LORA_STACK_104\n"
-                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
-                    "#endif\n"
-                    "    .OnDeviceTimeRequest = NULL,",
-                ),
-                (
-                    "        LmhpClockSyncPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );",
-                    "#ifdef LORA_STACK_104\n"
-                    "        LmHandlerSend( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
-                    "#else\n"
-                    "        LmhpClockSyncPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
-                    "#endif",
-                ),
-                (
-                    "    return LmhpClockSyncPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );",
-                    "#ifdef LORA_STACK_104\n"
-                    "    return LmHandlerSend( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
-                    "#else\n"
-                    "    return LmhpClockSyncPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
-                    "#endif",
-                ),
-            ],
-            "LmhpRemoteMcastSetup.c": [
-                (
-                    "    .IsRunning = LmhpRemoteMcastSetupIsRunning,",
-                    "#ifdef LORA_STACK_104\n"
-                    "    .IsTxPending = LmhpRemoteMcastSetupIsRunning,\n"
-                    "#else\n"
-                    "    .IsRunning = LmhpRemoteMcastSetupIsRunning,\n"
-                    "#endif",
-                ),
-                (
-                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
-                    "    .OnDeviceTimeRequest = NULL,",
-                    "#ifndef LORA_STACK_104\n"
-                    "    .OnSendRequest = NULL,                                     // To be initialized by LmHandler\n"
-                    "#endif\n"
-                    "    .OnDeviceTimeRequest = NULL,",
-                ),
-                (
-                    "        LmhpRemoteMcastSetupPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );",
-                    "#ifdef LORA_STACK_104\n"
-                    "        LmHandlerSend( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
-                    "#else\n"
-                    "        LmhpRemoteMcastSetupPackage.OnSendRequest( &appData, LORAMAC_HANDLER_UNCONFIRMED_MSG );\n"
-                    "#endif",
-                ),
-            ],
-        }
-
-        for filename, file_patches in patches.items():
-            fpath = os.path.join(packages_dir, filename)
-            if not os.path.isfile(fpath):
-                print("Warning: patch target not found: %s" % fpath)
+            if "/releases/download/" not in version:
                 continue
-            with open(fpath, "r") as f:
-                content = f.read()
-            # Normalize CRLF → LF before matching so patches work for both
-            # nRF52 BSP (LF) and STM32WLE BSP (CRLF) without dual patch strings.
-            content = content.replace("\r\n", "\n")
-            for old, new in file_patches:
-                if old in content:
-                    content = content.replace(old, new)
-                elif new not in content:
-                    # Patch not applied and new content also absent — warn
-                    print("Warning: patch target not found in %s:\n  %r" % (filename, old[:80]))
-            with open(fpath, "w") as f:
-                f.write(content)
+            filename = version.rsplit("/", 1)[-1]
+            if env_dist and "://" in env_dist:
+                options["version"] = env_dist.rstrip("/") + "/" + filename
+                sources.add(env_dist)
+            elif env_dist:
+                options["version"] = _file_url(os.path.join(env_dist, filename))
+                sources.add(env_dist)
+            elif os.path.isfile(os.path.join(local_dist, filename)):
+                options["version"] = _file_url(os.path.join(local_dist, filename))
+                sources.add(local_dist)
+        # The platform is loaded by both the pio process and the SCons build
+        # process; reporting from the build only gives one line per environment.
+        if sources and "SCons" in sys.modules and not Rakwirelessrui3Platform._dist_notice_shown:
+            Rakwirelessrui3Platform._dist_notice_shown = True
+            print("RUI3: using framework packages from %s" % ", ".join(sorted(sources)))
+
+
+def _file_url(path):
+    return "file://" + path.replace(os.sep, "/")

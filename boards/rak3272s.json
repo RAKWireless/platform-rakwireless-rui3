@@ -1,0 +1,41 @@
+{
+  "build": {
+    "core": "STM32WLE",
+    "cpu": "cortex-m4",
+    "f_cpu": "64000000L",
+    "hwids": [
+      [
+        "0x1A86",
+        "0x7523"
+      ]
+    ],
+    "mcu": "stm32wle5cc",
+    "rui3": {
+      "board": "WisDuoRAK3172EvaluationBoard"
+    },
+    "variant": "WisDuo_RAK3172_Evaluation_Board"
+  },
+  "debug": {
+    "jlink_device": "STM32WLE5CC",
+    "openocd_target": "stm32wlx",
+    "svd_path": "STM32WLE5x.svd"
+  },
+  "frameworks": [
+    "rui3"
+  ],
+  "name": "RAK3272S Breakout Board (RAK3172)",
+  "upload": {
+    "maximum_ram_size": 48640,
+    "maximum_size": 200704,
+    "protocol": "ymodem",
+    "protocols": [
+      "ymodem",
+      "jlink",
+      "stlink"
+    ],
+    "use_1200bps_touch": true,
+    "wait_for_upload_port": true
+  },
+  "url": "https://docs.rakwireless.com/product-categories/wisduo/rak3272s-breakout-board",
+  "vendor": "RAKwireless"
+}

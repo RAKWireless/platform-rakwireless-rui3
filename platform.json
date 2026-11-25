@@ -4,7 +4,7 @@
   "description": "RAKwireless RUI3 platform for WisDuo and WisBlock modules (STM32WLE, nRF52840, Apollo3)",
   "homepage": "https://github.com/RAKWireless",
   "license": "Apache-2.0",
-  "version": "4.2.3+001",
+  "version": "4.3.0",
   "frameworks": {
     "rui3": {
       "script": "builder/frameworks/rui3.py"
@@ -14,22 +14,22 @@
     "framework-rui3-stm32wle": {
       "type": "framework",
       "optional": true,
-      "version": "https://github.com/RAKWireless/RAK-STM32-RUI/archive/refs/tags/v4.2.3_363.zip"
+      "version": "https://github.com/RAKWireless/platform-rakwireless-rui3/releases/download/bsp-v4.3.0_400/framework-rui3-stm32wle-v4.3.0_400.tar.gz"
     },
     "framework-rui3-nrf52": {
       "type": "framework",
       "optional": true,
-      "version": "https://github.com/RAKWireless/RAK-nRF52-RUI/archive/refs/tags/v4.2.3_363.zip"
+      "version": "https://github.com/RAKWireless/platform-rakwireless-rui3/releases/download/bsp-v4.3.0_400/framework-rui3-nrf52-v4.3.0_400.tar.gz"
     },
     "framework-rui3-apollo3": {
       "type": "framework",
       "optional": true,
-      "version": "https://github.com/RAKWireless/RAK-APOLLO3-RUI/archive/refs/tags/v4.2.3_363.zip"
+      "version": "https://github.com/RAKWireless/platform-rakwireless-rui3/releases/download/bsp-v4.3.0_400/framework-rui3-apollo3-v4.3.0_400.tar.gz"
     },
     "toolchain-gccarmnoneeabi": {
       "type": "toolchain",
       "owner": "platformio",
-      "version": "~1.90301.0"
+      "version": "~1.90201.0"
     },
     "tool-openocd": {
       "type": "debugger",
@@ -47,35 +47,71 @@
   "boards": [
     {
       "id": "rak3172",
-      "name": "RAK3172"
+      "name": "RAK3172 WisDuo Module"
+    },
+    {
+      "id": "rak3372",
+      "name": "RAK3372 WisBlock Core (RAK3172)"
+    },
+    {
+      "id": "rak3272s",
+      "name": "RAK3272S Breakout Board (RAK3172)"
     },
     {
       "id": "rak3172t",
-      "name": "RAK3172-T"
+      "name": "RAK3172-T WisDuo Module"
+    },
+    {
+      "id": "rak3172f",
+      "name": "RAK3172-F WisDuo Module"
+    },
+    {
+      "id": "rak3172sip",
+      "name": "RAK3172-SiP WisDuo SiP"
     },
     {
       "id": "rak3272sip",
-      "name": "RAK3272-SiP"
+      "name": "RAK3272-SiP Breakout Board (RAK3172-SiP)"
     },
     {
       "id": "rak3272lpsip",
-      "name": "RAK3272LP-SiP"
+      "name": "RAK3272LP-SiP Breakout Board"
+    },
+    {
+      "id": "rak11160",
+      "name": "RAK11160 WisDuo Module"
+    },
+    {
+      "id": "rak11162",
+      "name": "RAK11162 WisBlock Core (RAK11160)"
+    },
+    {
+      "id": "rak2461",
+      "name": "RAK2461 WisNode"
+    },
+    {
+      "id": "rak4630",
+      "name": "RAK4630 WisDuo Module"
     },
     {
       "id": "rak4631",
-      "name": "RAK4631"
-    },
-    {
-      "id": "rak5010",
-      "name": "RAK5010"
+      "name": "RAK4631 WisBlock Core (RAK4630)"
     },
     {
       "id": "rak3401",
-      "name": "RAK3401"
+      "name": "RAK3401 WisBlock Core"
+    },
+    {
+      "id": "rak5010",
+      "name": "RAK5010 WisTrio NB-IoT Tracker"
     },
     {
       "id": "rak11720",
-      "name": "RAK11720"
+      "name": "RAK11720 WisDuo Module"
+    },
+    {
+      "id": "rak11722",
+      "name": "RAK11722 WisBlock Core (RAK11720)"
     }
   ]
 }

@@ -1,16 +1,19 @@
 {
   "build": {
     "core": "nRF5",
-    "cpu": "cortex-m4",
+    "cpu": "cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard",
     "f_cpu": "64000000L",
+    "hwids": [
+      [
+        "0x239A",
+        "0x8029"
+      ]
+    ],
     "mcu": "nrf52840",
-    "variant": "WisCore_RAK3401_Board",
-    "series": "rak3400",
-    "ldscript": "flash_nrf52840.ld",
-    "float_flags": "-mfloat-abi=hard -mfpu=fpv4-sp-d16 -u _printf_float",
-    "extra_flags": "-DNRF52840_XXAA -DRAK3401_V2.0+RAK5005-O_V1.0 -Drak3400 -DWISBLOCK_BASE_5005_O",
-    "feature_flags": "-DNO_LORA_SUPPORT -DLORA_IO_SPI_PORT=2 -DSYS_RTC_COUNTER_PORT=2 -DATCMD_CUST_TABLE_SIZE=64 -DBATTERY_LEVEL_SUPPORT -DBLE_CENTRAL_SUPPORT -DAPP_TIMER_V2 -DAPP_TIMER_V2_RTC1_ENABLED -DBOARD_PCA10056 -DS140 -DCONFIG_GPIO_AS_PINRESET -DFLOAT_ABI_HARD -DNRF52840_XXAA -DNRF_SD_BLE_API_VERSION=6 -DUSER_UART -DUSBD_CDC -DBLE_SUPPORT -DDFU_SUPPORT -DBL_SETTINGS_ACCESS_ONLY -DNRF_DFU_SVCI_ENABLED -DNRF_DFU_TRANSPORT_BLE=1 -DSOFT_SE -DSECURE_ELEMENT_PRE_PROVISIONED -DSOFTDEVICE_PRESENT -DSWI_DISABLE0 -D__HEAP_SIZE=7168 -D__STACK_SIZE=7168 -DDEBUG -DWISBLOCK_BASE_5005_O -DSUPPORT_USB -DSUPPORT_BLE -DSUPPORT_NFC -DSUPPORT_SPI -DSUPPORT_AT -DRUI_SDK",
-    "prebuilt_libs": "-lnrf_cc310_0.9.13 -loberon_3.0.6"
+    "rui3": {
+      "board": "WisCoreRAK3401Board"
+    },
+    "variant": "WisCore_RAK3401_Board"
   },
   "debug": {
     "jlink_device": "nRF52840_xxAA",
@@ -20,20 +23,17 @@
   "frameworks": [
     "rui3"
   ],
-  "name": "RAK3401 WisBlock BLE Module",
+  "name": "RAK3401 WisBlock Core",
   "upload": {
     "maximum_ram_size": 206448,
     "maximum_size": 557056,
-    "protocol": "nrfjprog",
+    "protocol": "nrfutil",
     "protocols": [
-      "nrfjprog",
-      "jlink",
-      "blackmagic",
-      "stlink"
+      "nrfutil"
     ],
     "use_1200bps_touch": true,
     "wait_for_upload_port": true
   },
-  "url": "https://docs.rakwireless.com/Product-Categories/WisDuo/RAK3401/Overview/",
+  "url": "https://docs.rakwireless.com/product-categories/wisblock/rak3401",
   "vendor": "RAKwireless"
 }

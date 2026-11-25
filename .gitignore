@@ -24,3 +24,6 @@ references/
 
 # Claude
 .claude/
+
+# Repackaged framework tarballs (tools/bsp.py package)
+dist/

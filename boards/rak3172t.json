@@ -3,14 +3,17 @@
     "core": "STM32WLE",
     "cpu": "cortex-m4",
     "f_cpu": "64000000L",
+    "hwids": [
+      [
+        "0x1A86",
+        "0x7523"
+      ]
+    ],
     "mcu": "stm32wle5cc",
-    "variant": "WisDuo_RAK3172-T_Board",
-    "series": "rak3172T",
-    "app_path": "RAK3172-T",
-    "ldscript": "flash_stm32wle5xx.ld",
-    "float_flags": "-mfpu=fpv4-sp-d16 -u _printf_float",
-    "extra_flags": "-DSTM32WLE5xx -Drak3172T -DWISBLOCK_BASE_5005_O",
-    "feature_flags": "-DLORA_STACK_104 -DLORA_IO_SPI_PORT=2 -DSYS_RTC_COUNTER_PORT=2 -DATCMD_CUST_TABLE_SIZE=64 -DWAN_TYPE=0 -DLORA_STACK_VER=0x040700 -DCORE_CM4 -DUSE_HAL_DRIVER -DSTM32WLE5xx -DSOFT_SE -DSECURE_ELEMENT_PRE_PROVISIONED -DLORAMAC_CLASSB_ENABLED -DSUPPORT_SPI -DSUPPORT_AT -DRUI_SDK"
+    "rui3": {
+      "board": "WisDuoRAK3172TBoard"
+    },
+    "variant": "WisDuo_RAK3172-T_Board"
   },
   "debug": {
     "jlink_device": "STM32WLE5CC",
@@ -20,7 +23,7 @@
   "frameworks": [
     "rui3"
   ],
-  "name": "RAK3172-T WisDuo Board",
+  "name": "RAK3172-T WisDuo Module",
   "upload": {
     "maximum_ram_size": 48640,
     "maximum_size": 200704,
@@ -29,8 +32,10 @@
       "ymodem",
       "jlink",
       "stlink"
-    ]
+    ],
+    "use_1200bps_touch": true,
+    "wait_for_upload_port": true
   },
-  "url": "https://docs.rakwireless.com/Product-Categories/WisDuo/RAK3172/Overview/",
+  "url": "https://docs.rakwireless.com/product-categories/wisduo/rak3172-module",
   "vendor": "RAKwireless"
 }

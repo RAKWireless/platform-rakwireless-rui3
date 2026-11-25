@@ -1,14 +1,19 @@
 {
   "build": {
     "core": "apollo3",
-    "mcu": "cortex-m4",
+    "cpu": "cortex-m4",
     "f_cpu": "48000000L",
-    "variant": "WisCore_RAK11720_Board",
-    "series": "rak11720",
-    "ldscript": "flash_apollo3.ld",
-    "float_flags": "-mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -u _printf_float",
-    "extra_flags": "-DPART_APOLLO3 -DRAK11720+RAK5005-O_V1.0 -Drak11720 -DWISBLOCK_BASE_5005_O",
-    "feature_flags": "-DLORA_STACK_104 -DLORA_IO_SPI_PORT=1 -DSYS_RTC_COUNTER_PORT=2 -DATCMD_CUST_TABLE_SIZE=64 -DWAN_TYPE=0 -DLORA_STACK_VER=0x040700 -Dgcc -DPART_APOLLO3 -DAM_PACKAGE_BGA -DAM_PART_APOLLO3 -DAM_FREERTOS -DAM_FREERTOS_STIMER_BACKUP -DAM_BLE_USE_NVM -DAM_CUSTOM_BDADDR -DAM_NUS_ADD -DAM_CUS_ADD -DAM_AMOTA_ADD -DAM_UTIL_FAULTISR_PRINT -DSEC_ECC_CFG=SEC_ECC_CFG_HCI -DRTT_LOG_ENABLED -DDEBUG_ENABLED -DTWI0_ENABLED -DSPI0_ENABLED -DSPI1_ENABLED -DBLE_SUPPORT -DSX1262_CHIP -DARDUINO_AM_AP3_SFE_ARTEMIS_DK -DSOFT_SE -DSECURE_ELEMENT_PRE_PROVISIONED -DLORAMAC_CLASSB_ENABLED -DBLE_CENTRAL_SUPPORT -DSUPPORT_BLE -DSUPPORT_SPI -DSUPPORT_AT -DRUI_SDK"
+    "hwids": [
+      [
+        "0x239A",
+        "0x8029"
+      ]
+    ],
+    "mcu": "ama3b1kk",
+    "rui3": {
+      "board": "WisCoreRAK11720Board"
+    },
+    "variant": "WisCore_RAK11720_Board"
   },
   "debug": {
     "jlink_device": "AMA3B1KK-KBR",
@@ -17,7 +22,7 @@
   "frameworks": [
     "rui3"
   ],
-  "name": "RAK11720 WisBlock Core Board",
+  "name": "RAK11720 WisDuo Module",
   "upload": {
     "maximum_ram_size": 392192,
     "maximum_size": 917504,
@@ -28,6 +33,6 @@
     "use_1200bps_touch": true,
     "wait_for_upload_port": true
   },
-  "url": "https://docs.rakwireless.com/Product-Categories/WisBlock/RAK11720/Overview/",
+  "url": "https://docs.rakwireless.com/product-categories/wisduo/rak11720-module",
   "vendor": "RAKwireless"
 }
