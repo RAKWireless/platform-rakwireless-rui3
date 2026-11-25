@@ -1,6 +1,13 @@
 """
 RUI3 framework build script, shared by every MCU family.
 
+Projects select it with `framework = arduino`, because PlatformIO handles
+Arduino libraries and sketches only for a framework of that name: it installs
+the libraries an Arduino library depends on (every library.properties
+"depends=" entry is marked as Arduino-only, and is skipped for any other
+framework name, before this script runs), the library finder accepts Arduino
+libraries, and .ino sketches are converted to C++ with generated prototypes.
+
 Compiler and linker settings come from the BSP's own Arduino recipes
 (platform.txt + boards.txt), resolved by builder/rui3_recipe.py for the
 upstream board named in the board manifest (build.rui3.board). IDE menu
@@ -18,7 +25,7 @@ the core (the nRF52 variant's app_error handlers, for instance).
 import os
 import sys
 
-from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment
+from SCons.Script import DefaultEnvironment
 
 Import("env")
 
@@ -45,12 +52,6 @@ FRAMEWORK_DIR = platform.get_package_dir(family["package"])
 if not FRAMEWORK_DIR or not os.path.isdir(FRAMEWORK_DIR):
     fail("%s is not installed" % family["package"])
 CORE_DIR = os.path.join(FRAMEWORK_DIR, "cores", core)
-
-# RUI3 sketches are Arduino-style .ino files. PlatformIO converts .ino to C++
-# (adding the prototypes the Arduino IDE generates) only for its own "arduino"
-# framework; without this call, .ino files in the project are not compiled.
-if "nobuild" not in COMMAND_LINE_TARGETS:
-    env.ConvertInoToCpp()
 
 upstream_board = board.get("build.rui3.board", "")
 if not upstream_board:

@@ -17,7 +17,8 @@ RUI3 release needs no hand-made build settings.
 - The Arduino IDE's menu options (LoRaWAN regions, debug level, ...) as board options in `platformio.ini`
 - Upload over the board's USB serial port for every family, without nrfutil, RAK's uploaders or
   any other tool to install
-- Arduino-style sketches: `.ino` or `.cpp` files, the RUI3 `api.*` calls, `Serial`, `Wire`, `SPI`, ...
+- Arduino-style sketches (`.ino` or `.cpp`) with the RUI3 `api.*` calls, `Serial`, `Wire`, `SPI`, ...,
+  and Arduino libraries from the PlatformIO registry, installed with the libraries they depend on
 
 ## Requirements
 
@@ -38,7 +39,7 @@ downloaded on the first build.
 [env:rak4631]
 platform = https://github.com/RAKWireless/platform-rakwireless-rui3.git#v4.3.0
 board = rak4631
-framework = rui3
+framework = arduino
 monitor_speed = 115200
 ```
 
@@ -59,6 +60,10 @@ void loop()
     delay(5000);
 }
 ```
+
+`framework = arduino` selects RAKwireless's RUI3 BSP, not another Arduino core: RUI3 provides
+the Arduino API, and `arduino` is the name PlatformIO needs to handle Arduino libraries (see
+[Libraries](#libraries)).
 
 Then:
 
@@ -146,7 +151,7 @@ Each board has the options of the Arduino IDE's board menus. Set them per enviro
 [env:rak3172]
 platform = https://github.com/RAKWireless/platform-rakwireless-rui3.git#v4.3.0
 board = rak3172
-framework = rui3
+framework = arduino
 board_build.rui3.supportcn470 = on
 board_build.rui3.debug = l2
 ```
@@ -274,20 +279,33 @@ monitor_echo = yes
 ```
 
 `AT+VER=?` shows the firmware version and `AT+BUILDTIME=?` the time it was built, which tells
-whether an upload took. (`api.system.firmwareVersion.get()` reads a copy kept in the board's
-settings, which can still name the firmware the board had before.)
+whether an upload took.
 
 ## Libraries
 
-PlatformIO treats Arduino libraries (those with a `library.properties` file) as compatible with
-its own `arduino` framework only. To use them with `framework = rui3`, turn the compatibility
-check off:
+Add Arduino libraries with `lib_deps`, by registry name, Git URL or ZIP URL (RAKwireless's own
+RUI3 libraries are ZIP files on its download server):
 
 ```ini
 lib_deps =
-    ; libraries from the PlatformIO registry or Git URLs, as usual
-lib_compat_mode = off
+    adafruit/Adafruit SHT31 Library
+    https://downloads.rakwireless.com/RUI/RUI3/Library/RAKwireless_RAK1901_Temperature_and_Humidity_SHTC3.zip
 ```
+
+PlatformIO also installs the libraries these depend on, as the Arduino IDE's "Install all" does:
+Adafruit SHT31 brings Adafruit BusIO.
+
+**Why the framework is `arduino`.** PlatformIO decides by framework name which libraries a project
+can use. It counts every library described by a `library.properties` file, and every dependency
+such a file lists in `depends=`, as made for `arduino` only. With any other framework name, for
+example `framework = rui3`, it would install the libraries named in `lib_deps` but silently skip
+the ones they depend on, and the build would then fail on a missing header
+(`Adafruit_I2CDevice.h: No such file or directory`). That check runs before the build starts, so
+the platform cannot work around it under another name.
+
+A library builds if it sticks to the Arduino API; one written for another core's internals (AVR
+registers, ESP-IDF calls, ...) does not. Libraries made only for other frameworks are left out
+(see [Troubleshooting](#troubleshooting)).
 
 ## Using another RUI3 release
 
@@ -315,6 +333,45 @@ The examples refer to the platform by name, so install it first (see
 cd examples/system-info
 pio run -e rak4631 -t upload
 ```
+
+## Troubleshooting
+
+**The build shows warnings from RAK's headers.** Lines such as `"PIN_SPI_MISO" redefined` or
+`ISO C++11 requires whitespace after the macro name` come from the BSP's own headers and board
+definitions. The Arduino IDE builds with `-w` and hides them; the platform keeps warnings on for
+your code, and so also shows the ones in the headers it includes. They are harmless.
+
+**A library's header is not found.** Check that the environment says `framework = arduino`:
+under any other name, PlatformIO skips the libraries that Arduino libraries depend on (see
+[Libraries](#libraries)). PlatformIO also leaves out libraries made only for other frameworks
+(a `library.json` that lists only `espidf`, `mbed`, ...); `pio run -v` names them: `Framework
+incompatible library ...`. If one does work with RUI3, include it anyway with:
+
+```ini
+lib_compat_mode = off
+```
+
+**A function is "not declared in this scope" in a `.cpp` file.** As in the Arduino IDE, only
+`.ino` files get prototypes generated for their functions. In `.cpp` files, declare a function
+before its first use.
+
+**The upload cannot find the board, or picks the wrong one.** Set `upload_port` (see
+[Uploading](#uploading)), and close any serial monitor that holds the port.
+
+**An upload was interrupted.** The board stays in its bootloader. Run the upload again: the
+uploaders also work with a board that is already in its bootloader.
+
+**A sketch that hangs or crashes at start cannot be replaced.** The uploaders reach the
+bootloader through the running firmware (`at+boot`). If the sketch never gets far enough to
+answer, enter the bootloader the way your board's documentation describes, or reflash it with an
+SWD probe.
+
+**The upload is refused: "the board runs RUI_5..."** The board has RUI3 5.x and may have a
+bootloader that cannot take a 4.x image; see [Boards that run RUI3 5.x](#boards-that-run-rui3-5x).
+
+**`api.system.firmwareVersion.get()` still shows the old version.** It returns a copy kept in the
+board's settings, which can still name the firmware the board had before. `AT+VER=?` and
+`AT+BUILDTIME=?` report the firmware that is running.
 
 ## Limitations
 

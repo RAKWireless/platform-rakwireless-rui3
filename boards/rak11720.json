@@ -15,12 +15,8 @@
     },
     "variant": "WisCore_RAK11720_Board"
   },
-  "debug": {
-    "jlink_device": "AMA3B1KK-KBR",
-    "openocd_target": "ambiq_apollo3_evb.cfg"
-  },
   "frameworks": [
-    "rui3"
+    "arduino"
   ],
   "name": "RAK11720 WisDuo Module",
   "upload": {
@@ -28,8 +24,7 @@
     "maximum_size": 917504,
     "protocol": "amota",
     "protocols": [
-      "amota",
-      "jlink"
+      "amota"
     ],
     "use_1200bps_touch": true,
     "wait_for_upload_port": true

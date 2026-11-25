@@ -15,13 +15,8 @@
     },
     "variant": "WisCore_RAK4631_Board"
   },
-  "debug": {
-    "jlink_device": "nRF52840_xxAA",
-    "openocd_target": "nrf52840.cfg",
-    "svd_path": "nrf52840.svd"
-  },
   "frameworks": [
-    "rui3"
+    "arduino"
   ],
   "name": "RAK4630 WisDuo Module",
   "upload": {

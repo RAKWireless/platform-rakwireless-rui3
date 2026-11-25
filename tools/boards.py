@@ -236,7 +236,9 @@ def build_manifest(upstream_id, name, url, props, existing, template, usb=None):
 
     manifest["name"] = name
     manifest["url"] = url
-    manifest["frameworks"] = ["rui3"]
+    # "arduino", not "rui3": PlatformIO installs and builds Arduino libraries,
+    # and the libraries they depend on, only for a framework of that name.
+    manifest["frameworks"] = ["arduino"]
     manifest["vendor"] = "RAKwireless"
     return manifest
 
